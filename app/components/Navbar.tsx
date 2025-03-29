@@ -4,13 +4,14 @@ import { useSession } from "next-auth/react";
 import { signIn, signOut } from "next-auth/react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { SiGoogle } from "react-icons/si";
-import Link from "next/link"; // Importamos Link de next/link
+import Link from "next/link";
 
 export default function Navbar() {
   const { data: session, status } = useSession();
 
   const avatarUrl = "/default-avatar.jpg";
-  console.log("Session data:", session);
+  console.log("Navbar - Datos de la sesión:", session);
+  console.log("Navbar - Estado:", status);
 
   return (
     <nav className="bg-white border-b border-gray-200 py-3 px-4 fixed top-0 left-0 right-0 z-10">
@@ -26,8 +27,13 @@ export default function Navbar() {
           ) : session ? (
             <>
               <Avatar className="h-8 w-8">
-                <AvatarImage src={session.user?.image || avatarUrl} alt="User avatar" />
-                <AvatarFallback>{session.user?.name?.[0] || "U"}</AvatarFallback>
+                <AvatarImage
+                  src={session.user?.image || avatarUrl}
+                  alt="Avatar del usuario"
+                />
+                <AvatarFallback>
+                  {session.user?.name?.[0] || "U"}
+                </AvatarFallback>
               </Avatar>
               <button
                 onClick={() => signOut({ callbackUrl: "/" })}
