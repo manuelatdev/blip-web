@@ -1,14 +1,9 @@
-// components/CreateBlipForm.tsx
-
 "use client";
 
 import { useState, useTransition, useRef, useEffect } from "react";
 import { useSession } from "next-auth/react";
-import {
-  createBlip,
-  BlipResponse,
-  generatePresignedUrls, // Importamos directamente como Server Action
-} from "../actions/blips";
+import { createBlip, generatePresignedUrls } from "@/actions/blips"; // Importamos desde @/actions/blips.ts
+import { BlipResponse } from "@/types/blip"; // Importamos tipos desde @/types/blip.ts
 import { toast } from "sonner";
 import { FiImage } from "react-icons/fi";
 import { ImagePreview } from "./blip/ImagePreview";
@@ -155,7 +150,6 @@ export default function CreateBlipForm({ onBlipCreated }: CreateBlipFormProps) {
           const fileNames = Array.from(files!).map((file) => file.name);
           const userId = session?.user?.id || "anon";
 
-          // Usamos la Server Action directamente
           const presignedData = await generatePresignedUrls(fileNames, userId);
 
           await Promise.all(

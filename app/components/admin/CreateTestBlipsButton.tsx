@@ -1,115 +1,89 @@
 "use client";
 
 import { useState } from "react";
-import { createBlip, BlipResponse } from "@/app/actions/blips"; // Ajusta la ruta según tu estructura
+import { createBlip } from "@/actions/blips"; // Acción desde @/actions/blips.ts
+import { BlipResponse } from "@/types/blip"; // Tipo desde @/types/blip.ts
 import { toast } from "sonner";
-import { useBlipsStore } from "@/store/BlipStore"; // Ajusta la ruta
+import { useBlipsStore } from "@/store/BlipStore";
 
 export default function CreateTestBlipsButton() {
   const [isPending, setIsPending] = useState(false);
-  const { addNewBlip } = useBlipsStore(); // Usamos addNewBlip para añadir Blips al almacén
+  const { addNewBlip } = useBlipsStore();
 
   const adminAccessToken = process.env.NEXT_PUBLIC_ADMIN_ACCESS_TOKEN;
   const userAccessToken = process.env.NEXT_PUBLIC_USER_ACCESS_TOKEN;
   const testImage = "https://i.imgur.com/qSwIEs5.jpeg";
-  const invalidImage = "https://example.com/nonexistent-image.jpg"; // URL inválida para pruebas
+  const invalidImage = "https://example.com/nonexistent-image.jpg";
 
   const handleCreateTestBlips = async () => {
     setIsPending(true);
-    const errors: { testCase: any; error: string }[] = []; // Array para almacenar los errores
+    const errors: { testCase: any; error: string }[] = [];
 
     try {
       const testCases = [
-        // Blip anónimo, solo texto
         {
           content: "Blip anónimo solo texto",
           imageUrls: [],
           accessToken: undefined,
         },
-        // Blip con usuario normal, solo texto
         {
           content: "Blip usuario normal solo texto",
           imageUrls: [],
           accessToken: userAccessToken,
         },
-        // Blip con admin, solo texto
         {
           content: "Blip admin solo texto",
           imageUrls: [],
           accessToken: adminAccessToken,
         },
-        // Blip anónimo con 1 imagen
         {
           content: "Blip anónimo con 1 imagen",
           imageUrls: [testImage],
           accessToken: undefined,
         },
-        // Blip usuario normal con 2 imágenes
         {
           content: "Blip usuario normal con 2 imágenes",
           imageUrls: [testImage, testImage],
           accessToken: userAccessToken,
         },
-        // Blip admin con 3 imágenes
         {
           content: "Blip admin con 3 imágenes",
           imageUrls: [testImage, testImage, testImage],
           accessToken: adminAccessToken,
         },
-        // Blip admin con 4 imágenes
         {
           content: "Blip admin con 4 imágenes",
           imageUrls: [testImage, testImage, testImage, testImage],
           accessToken: adminAccessToken,
         },
-        // Blip usuario normal solo imágenes (sin texto)
+        { content: "", imageUrls: [testImage], accessToken: userAccessToken },
+        { content: "", imageUrls: [], accessToken: undefined },
         {
-          content: "",
-          imageUrls: [testImage],
-          accessToken: userAccessToken,
-        },
-        // Blip anónimo sin nada (debería fallar)
-        {
-          content: "",
-          imageUrls: [],
-          accessToken: undefined,
-        },
-        // NUEVO: Blip con contenido que excede el límite de caracteres (debería fallar)
-        {
-          content: "A".repeat(281), // 281 caracteres, excede el límite de 280
+          content: "A".repeat(281),
           imageUrls: [],
           accessToken: userAccessToken,
         },
-        // NUEVO: Blip con más de 4 imágenes (debería fallar)
         {
           content: "Blip con más de 4 imágenes",
-          imageUrls: [testImage, testImage, testImage, testImage, testImage], // 5 imágenes
+          imageUrls: [testImage, testImage, testImage, testImage, testImage],
           accessToken: adminAccessToken,
         },
-        // NUEVO: Blip con accessToken inválido (debería fallar)
         {
           content: "Blip con token inválido",
           imageUrls: [],
-          accessToken: "invalid-token-123", // Token falso
+          accessToken: "invalid-token-123",
         },
-        // NUEVO: Blip con URL de imagen inválida
         {
           content: "Blip con imagen inválida",
           imageUrls: [invalidImage],
           accessToken: userAccessToken,
         },
-        // NUEVO: Blip con caracteres especiales y emojis
         {
           content: "Blip con emojis 😊🚀 y caracteres especiales <>&",
           imageUrls: [],
           accessToken: adminAccessToken,
         },
-        // NUEVO: Blip con texto muy corto (1 carácter)
-        {
-          content: "a",
-          imageUrls: [],
-          accessToken: userAccessToken,
-        },
+        { content: "a", imageUrls: [], accessToken: userAccessToken },
       ];
 
       for (const testCase of testCases) {
@@ -126,9 +100,11 @@ export default function CreateTestBlipsButton() {
             formData,
             testCase.accessToken
           );
-          addNewBlip(newBlip); // Añadimos el Blip al almacén
+          addNewBlip(newBlip);
           toast.success(`Blip creado: ${testCase.content || "Sin texto"}`, {
-            description: `Token: ${testCase.accessToken || "Anónimo"}`,
+            description: `Token: ${testCase.accessToken || "Anónimo"}, Admin: ${
+              newBlip.userInfo.isAdmin
+            }`,
             duration: 2000,
           });
         } catch (err) {

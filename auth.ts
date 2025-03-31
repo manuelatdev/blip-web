@@ -24,6 +24,49 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   },
   callbacks: {
     async jwt({ token, account, profile }) {
+      // Si el token ya tiene un userId, el usuario ya está registrado
+      if (token.userId) {
+        // Refrescar los datos del usuario desde el microservicio
+        try {
+          const response = await fetch(
+            `${process.env.NEXT_PUBLIC_USERS_API_URL}/auth/users/${token.userId}`,
+            {
+              method: "GET",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${token.accessToken}`,
+              },
+            }
+          );
+
+          if (response.ok) {
+            console.log("OK -----------------------------------------");
+
+            const user = await response.json();
+            token.email = user.email;
+            token.displayName = user.displayName;
+            token.profilePictureUrl = user.profilePictureUrl;
+            token.role = user.userRole; // Usar userRole, que es el nombre del campo en UserResponse
+            console.log(
+              "Datos del usuario actualizados desde el microservicio:",
+              token
+            );
+          } else {
+            console.error(
+              "Error al refrescar los datos del usuario:",
+              response.status,
+              await response.text()
+            );
+            // Si falla la solicitud, mantenemos los datos existentes en el token
+          }
+        } catch (error) {
+          console.error("Error al conectar con el microservicio:", error);
+          // Si hay un error de red u otro problema, mantenemos los datos existentes
+        }
+        return token;
+      }
+
+      // Si hay un account, es un inicio de sesión explícito (primera vez o después de cerrar sesión)
       if (account) {
         token.id_token = account.id_token;
         token.provider = account.provider;
@@ -31,7 +74,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         // Obtener la URL de la imagen de perfil desde el perfil de Google
         let profilePictureUrl: string | undefined | null = profile?.picture;
 
-        // Si hay una imagen de perfil y un userId (sub), subirla al bucket
+        // Solo subimos la imagen al bucket si es la primera vez
         if (profilePictureUrl && profile?.sub) {
           try {
             profilePictureUrl = await uploadImageToBucket(
@@ -51,6 +94,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           }
         }
 
+        // Registrar al usuario en el microservicio
         const response = await fetch(
           `${process.env.NEXT_PUBLIC_USERS_API_URL}/auth/google`,
           {
@@ -59,7 +103,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             body: JSON.stringify({
               idToken: account.id_token,
               externalId: token.sub,
-              profilePictureUrl, // Enviamos la nueva URL (o null si falló)
+              profilePictureUrl,
             }),
           }
         );
@@ -80,8 +124,12 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             response.status,
             await response.text()
           );
+          throw new Error(
+            "No se pudo registrar el usuario en el microservicio"
+          );
         }
       }
+
       return token;
     },
     async session({ session, token }) {
@@ -93,7 +141,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         emailVerified: new Date(),
       };
       session.accessToken = token.accessToken as string;
-      session.role = token.role;
+      session.role = token.role; // Asignamos el role directamente a session.role
       console.log("Session Callback - Sesión actualizada:", session);
       return session;
     },

@@ -1,5 +1,3 @@
-// components/BlipImages/BlipImages.tsx
-
 "use client";
 
 import { useState, useEffect } from "react";
@@ -98,6 +96,7 @@ export function BlipImages({ imageUrls }: BlipImagesProps) {
     url: string,
     alt: string,
     className: string,
+    sizes: string,
     isModal: boolean = false
   ) => {
     if (failedImages.has(url)) {
@@ -114,7 +113,6 @@ export function BlipImages({ imageUrls }: BlipImagesProps) {
     }
 
     if (isModal) {
-      // Usamos <img> para el modal
       return (
         <img
           src={url}
@@ -127,13 +125,13 @@ export function BlipImages({ imageUrls }: BlipImagesProps) {
       );
     }
 
-    // Usamos Image de Next.js para la vista previa
     return (
       <div className={className} style={{ position: "relative" }}>
         <Image
           src={url}
           alt={alt}
           fill
+          sizes={sizes}
           className="object-cover rounded-md"
           onError={() => setFailedImages((prev) => new Set(prev).add(url))}
           onClick={() => setSelectedImage(url)}
@@ -144,24 +142,33 @@ export function BlipImages({ imageUrls }: BlipImagesProps) {
 
   return (
     <div className="mt-6 overflow-hidden rounded-lg border border-gray-200 dark:border-gray-700 p-1">
-      {imageUrls.length === 1 &&
-        renderImage(
-          imageUrls[0],
-          "Imagen 1",
-          `w-full h-auto max-h-[512px] ${baseImageClass}`
-        )}
+      {imageUrls.length === 1 && (
+        <div
+          className={`w-full max-h-[512px] ${baseImageClass}`}
+          style={{ position: "relative", aspectRatio: "16 / 9" }}
+        >
+          {renderImage(
+            imageUrls[0],
+            "Imagen 1",
+            "absolute inset-0 w-full h-full",
+            "100vw"
+          )}
+        </div>
+      )}
 
       {imageUrls.length === 2 && (
         <div className="grid grid-cols-2 gap-1">
           {renderImage(
             imageUrls[0],
             "Imagen 1",
-            `w-full h-64 ${baseImageClass}`
+            `w-full h-64 ${baseImageClass}`,
+            "50vw"
           )}
           {renderImage(
             imageUrls[1],
             "Imagen 2",
-            `w-full h-64 ${baseImageClass}`
+            `w-full h-64 ${baseImageClass}`,
+            "50vw"
           )}
         </div>
       )}
@@ -171,18 +178,21 @@ export function BlipImages({ imageUrls }: BlipImagesProps) {
           {renderImage(
             imageUrls[0],
             "Imagen 1",
-            `w-full h-64 ${baseImageClass}`
+            `w-full h-64 ${baseImageClass}`,
+            "50vw"
           )}
           <div className="grid grid-rows-2 gap-1">
             {renderImage(
               imageUrls[1],
               "Imagen 2",
-              `w-full h-32 ${baseImageClass}`
+              `w-full h-32 ${baseImageClass}`,
+              "50vw"
             )}
             {renderImage(
               imageUrls[2],
               "Imagen 3",
-              `w-full h-32 ${baseImageClass}`
+              `w-full h-32 ${baseImageClass}`,
+              "50vw"
             )}
           </div>
         </div>
@@ -195,7 +205,8 @@ export function BlipImages({ imageUrls }: BlipImagesProps) {
               {renderImage(
                 url,
                 `Imagen ${index + 1}`,
-                `absolute inset-0 w-full h-full ${baseImageClass}`
+                `absolute inset-0 w-full h-full ${baseImageClass}`,
+                "50vw"
               )}
             </div>
           ))}

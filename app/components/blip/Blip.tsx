@@ -4,20 +4,15 @@ import { useState, useRef, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { toast } from "sonner";
-import { deleteBlip } from "../../actions/blips";
+import { deleteBlip } from "@/actions/blips";
 import { X } from "lucide-react";
 import { BlipImages } from "./BlipImages/BlipImages";
+import { BlipUserInfo, BlipContent } from "@/types/blip";
 
 interface BlipProps {
   blipId: string;
-  content: string;
-  imageUrl1: string | null | undefined; // Permitir undefined
-  imageUrl2: string | null | undefined;
-  imageUrl3: string | null | undefined;
-  imageUrl4: string | null | undefined;
-  userId: string | null;
-  displayName: string;
-  profilePictureUrl: string;
+  userInfo: BlipUserInfo;
+  content: BlipContent;
   timestamp: string;
   accessToken: string;
 }
@@ -45,22 +40,17 @@ function getRelativeTime(timestamp: string): string {
 
 export default function Blip({
   blipId,
+  userInfo,
   content,
-  imageUrl1,
-  imageUrl2,
-  imageUrl3,
-  imageUrl4,
-  userId,
-  displayName,
-  profilePictureUrl,
   timestamp,
   accessToken,
 }: BlipProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [isDeleted, setIsDeleted] = useState(false);
   const [isTruncated, setIsTruncated] = useState(false);
+  const [isLoaded, setIsLoaded] = useState(false);
   const contentRef = useRef<HTMLParagraphElement>(null);
-  const { data: session, status } = useSession();
+  const { data: session } = useSession();
 
   const date = new Date(timestamp);
   const formattedDate = date.toLocaleString("es-ES", {
@@ -71,11 +61,21 @@ export default function Blip({
     minute: "2-digit",
   });
 
-  const displayNameFormatted = userId ? `${displayName}` : "Blipper";
-  const avatarUrl = profilePictureUrl || "/default-avatar.jpg";
+  const displayNameFormatted = userInfo.userId
+    ? `${userInfo.displayName}`
+    : "Blipper";
+  const avatarUrl = userInfo.profilePictureUrl || "/default-avatar.jpg";
   const relativeTime = getRelativeTime(timestamp);
 
-  // Verificar si el contenido excede las 3 líneas
+  const imageUrls = [
+    content.imageUrl1,
+    content.imageUrl2,
+    content.imageUrl3,
+    content.imageUrl4,
+  ].filter(
+    (url): url is string => typeof url === "string" && url.trim() !== ""
+  );
+
   useEffect(() => {
     const checkTruncation = () => {
       if (contentRef.current) {
@@ -89,12 +89,39 @@ export default function Blip({
     checkTruncation();
     window.addEventListener("resize", checkTruncation);
     return () => window.removeEventListener("resize", checkTruncation);
-  }, [content]);
+  }, [content.value, isLoaded]);
+
+  useEffect(() => {
+    if (imageUrls.length === 0) {
+      setIsLoaded(true);
+      return;
+    }
+
+    let loadedCount = 0;
+    const totalImages = imageUrls.length;
+
+    const handleImageLoad = () => {
+      loadedCount++;
+      if (loadedCount === totalImages) {
+        setIsLoaded(true);
+      }
+    };
+
+    imageUrls.forEach((url) => {
+      const img = new Image();
+      img.src = url;
+      img.onload = handleImageLoad;
+      img.onerror = handleImageLoad;
+    });
+  }, [imageUrls]);
 
   const isOwnBlip =
-    session?.user?.id && userId && session.user.id === userId && accessToken;
-  const isAdmin = session?.role === "ADMIN"; // Comparación estricta
-  const canDelete = isOwnBlip || isAdmin;
+    session?.user?.id &&
+    userInfo.userId &&
+    session.user.id === userInfo.userId &&
+    accessToken;
+  const isViewerAdmin = session?.role === "ADMIN";
+  const canDelete = isOwnBlip || isViewerAdmin;
 
   const handleDelete = async () => {
     try {
@@ -113,15 +140,43 @@ export default function Blip({
     }
   };
 
-  // Filtrar URLs no nulas, no undefined y no vacías
-  const imageUrls = [imageUrl1, imageUrl2, imageUrl3, imageUrl4].filter(
-    (url): url is string => typeof url === "string" && url.trim() !== ""
-  );
-
   if (isDeleted) {
     return null;
   }
 
+  // Skeleton loading mientras no está cargado
+  if (!isLoaded) {
+    return (
+      <div className="p-4 border-b border-gray-200 rounded-xs animate-pulse">
+        <div className="flex gap-3">
+          <div className="relative h-10 w-10 sm:h-12 sm:w-12">
+            <div className="h-full w-full bg-gray-300 rounded-full" />
+            {userInfo.isAdmin && (
+              <span className="absolute bottom-0 left-1/2 -translate-x-1/2 text-xs bg-gray-300 h-5 w-12 rounded-full" />
+            )}
+          </div>
+          <div className="flex-1">
+            <div className="flex items-center justify-between mb-1">
+              <div className="flex items-center gap-2">
+                <div className="h-4 w-24 bg-gray-300 rounded" />
+                <div className="h-3 w-16 bg-gray-300 rounded" />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <div className="h-4 w-full bg-gray-300 rounded" />
+              <div className="h-4 w-3/4 bg-gray-300 rounded" />
+              {imageUrls.length > 0 && (
+                <div className="h-40 w-full bg-gray-300 rounded-lg" />
+              )}
+            </div>
+            <div className="h-3 w-32 bg-gray-300 rounded mt-2" />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Contenido completo una vez cargado
   return (
     <div
       className={`p-4 border-b border-gray-200 transition group relative rounded-xs ${
@@ -129,10 +184,20 @@ export default function Blip({
       }`}
     >
       <div className="flex gap-3">
-        <Avatar className="h-10 w-10 sm:h-12 sm:w-12">
-          <AvatarImage src={avatarUrl} alt={`Avatar de ${displayName}`} />
-          <AvatarFallback>{displayName[0]}</AvatarFallback>
-        </Avatar>
+        <div className="relative h-10 w-10 sm:h-12 sm:w-12">
+          <Avatar className={`h-full w-full `}>
+            <AvatarImage
+              src={avatarUrl}
+              alt={`Avatar de ${userInfo.displayName}`}
+            />
+            <AvatarFallback>{userInfo.displayName[0]}</AvatarFallback>
+          </Avatar>
+          {userInfo.isAdmin && (
+            <span className="absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-1/2 text-xs bg-blue-100 text-blue-800 px-1.5 py-0.5 rounded-full z-10">
+              Admin
+            </span>
+          )}
+        </div>
         <div className="flex-1">
           <div className="flex items-center justify-between mb-1">
             <div className="flex items-center gap-2 max-w-[calc(100%-2rem)]">
@@ -160,7 +225,7 @@ export default function Blip({
                 !isExpanded ? "line-clamp-3" : ""
               }`}
             >
-              {content}
+              {content.value}
             </p>
             {isTruncated && !isExpanded && (
               <button
@@ -178,7 +243,6 @@ export default function Blip({
                 Mostrar menos
               </button>
             )}
-            {/* Mostrar el componente de imágenes solo si hay URLs válidas */}
             {imageUrls.length > 0 && <BlipImages imageUrls={imageUrls} />}
           </div>
           <span

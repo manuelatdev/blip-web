@@ -1,5 +1,4 @@
 // actions/blips.ts
-
 "use server";
 
 import { revalidatePath } from "next/cache";
@@ -8,52 +7,30 @@ import {
   deleteObjectFromBucket,
   deleteObjectsFromBucket,
   listObjectsInBucket,
-  generatePresignedUrls, // Ya está importada
+  generatePresignedUrls,
 } from "@/utils/s3";
+import { BlipResponse, BlipsResult, DeleteBlipRequest } from "@/types/blip"; // Ajusta la ruta según tu estructura
 
 const BLIPS_API_URL =
   process.env.NEXT_PUBLIC_BLIPS_API_URL || "http://localhost:8081";
 
 const bucketName = "blips";
 
-export interface BlipResponse {
-  blipId: string;
-  userId: string | null;
-  content: string;
-  imageUrl1: string | null;
-  imageUrl2: string | null;
-  imageUrl3: string | null;
-  imageUrl4: string | null;
-  displayName: string;
-  profilePictureUrl: string;
-  timestamp: string;
-}
-
-export interface DeleteBlipRequest {
-  accessToken: string;
-}
-
-export interface BlipsResult {
-  blips: BlipResponse[];
-  success: boolean;
-  error?: string;
-}
-
 export async function createBlip(formData: FormData, accessToken?: string) {
-  const content = formData.get("content")?.toString() || "";
+  const contentValue = formData.get("content")?.toString() || "";
   const imageUrls: string[] = [];
   for (let i = 0; i < 4; i++) {
     const url = formData.get(`imageUrl${i}`);
     if (url) imageUrls.push(url.toString());
   }
 
-  if (!content.trim() && imageUrls.length === 0) {
+  if (!contentValue.trim() && imageUrls.length === 0) {
     throw new Error("El contenido no puede ser nulo ni vacío");
   }
 
   const requestBody = {
     accessToken: accessToken || formData.get("accessToken")?.toString() || null,
-    content,
+    content: contentValue,
     imageUrl1: imageUrls[0] || null,
     imageUrl2: imageUrls[1] || null,
     imageUrl3: imageUrls[2] || null,
@@ -75,7 +52,7 @@ export async function createBlip(formData: FormData, accessToken?: string) {
     );
   }
 
-  const result = await response.json();
+  const result: BlipResponse = await response.json();
   revalidatePath("/");
   return result;
 }
@@ -90,7 +67,7 @@ export async function getLatestBlips(): Promise<BlipsResult> {
         error: `Error ${res.status} al conectar con el servicio de blips`,
       };
     }
-    const blips = await res.json();
+    const blips: BlipResponse[] = await res.json();
     return { blips, success: true };
   } catch (error) {
     return {
@@ -115,10 +92,10 @@ export async function deleteBlip(
 ): Promise<void> {
   const blip = await getBlipById(blipId);
   const imageUrls = [
-    blip.imageUrl1,
-    blip.imageUrl2,
-    blip.imageUrl3,
-    blip.imageUrl4,
+    blip.content.imageUrl1,
+    blip.content.imageUrl2,
+    blip.content.imageUrl3,
+    blip.content.imageUrl4,
   ].filter(
     (url): url is string => typeof url === "string" && url.trim() !== ""
   );
@@ -169,15 +146,18 @@ export async function getBlipsBeforeTimestamp(
       { cache: "no-store" }
     );
     if (!res.ok) {
+      console.error("Failed to fetch blips:", res.status, await res.text());
       return {
         blips: [],
         success: false,
         error: `Error ${res.status} al conectar con el servicio de blips`,
       };
     }
-    const blips = await res.json();
+    const blips: BlipResponse[] = await res.json();
+    console.log("Fetched blips:", JSON.stringify(blips, null, 2));
     return { blips, success: true };
   } catch (error) {
+    console.error("Error fetching blips:", error);
     return {
       blips: [],
       success: false,
@@ -203,9 +183,7 @@ export async function clearAllBlipsAndBucket() {
   try {
     const response = await fetch(`${BLIPS_API_URL}/admin/blips/clear-all`, {
       method: "DELETE",
-      headers: {
-        "Content-Type": "application/json",
-      },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ accessToken: session.accessToken }),
     });
 
@@ -230,5 +208,4 @@ export async function clearAllBlipsAndBucket() {
   }
 }
 
-// Exportamos generatePresignedUrls como una Server Action
 export { generatePresignedUrls };

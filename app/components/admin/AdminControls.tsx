@@ -1,6 +1,6 @@
 "use client";
 
-import { useBlipsStore } from "@/store/BlipStore";
+import { useBlipsStore } from "@/store/BlipStore"; // Importamos desde @/store/BlipStore
 import ClearBlipsForm from "./ClearBlipsForm";
 import CreateTestBlipsButton from "./CreateTestBlipsButton";
 

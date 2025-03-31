@@ -1,10 +1,8 @@
-// components/feed/BlipList.tsx
-
 "use client";
 
 import { useEffect, useRef, useState } from "react";
 import Blip from "../blip/Blip";
-import { BlipResponse, getBlipsBeforeTimestamp } from "../../actions/blips";
+import { getBlipsBeforeTimestamp } from "@/actions/blips";
 import { useBlipsStore } from "../../../store/BlipStore";
 
 interface BlipListProps {
@@ -46,9 +44,9 @@ export default function BlipList({ accessToken }: BlipListProps) {
         setHasMore(false);
       } else {
         if (initialLoad) {
-          setBlips(fetchedBlips); // Carga inicial: reemplaza los blips
+          setBlips(fetchedBlips);
         } else {
-          appendBlips(fetchedBlips); // Carga posterior: agrega los blips
+          appendBlips(fetchedBlips);
         }
         setCursor(fetchedBlips[fetchedBlips.length - 1].timestamp);
         console.log(
@@ -101,14 +99,8 @@ export default function BlipList({ accessToken }: BlipListProps) {
           <Blip
             key={blip.blipId}
             blipId={blip.blipId}
+            userInfo={blip.userInfo}
             content={blip.content}
-            imageUrl1={blip.imageUrl1}
-            imageUrl2={blip.imageUrl2}
-            imageUrl3={blip.imageUrl3}
-            imageUrl4={blip.imageUrl4}
-            userId={blip.userId}
-            displayName={blip.displayName}
-            profilePictureUrl={blip.profilePictureUrl}
             timestamp={blip.timestamp}
             accessToken={accessToken}
           />

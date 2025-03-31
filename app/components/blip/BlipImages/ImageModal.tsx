@@ -1,9 +1,7 @@
-// components/BlipImages/ImageModal.tsx
-
 "use client";
 
 import { FiChevronLeft, FiChevronRight, FiImage } from "react-icons/fi";
-import { ImageModalProps } from "./types";
+import { ImageModalProps } from "./types"; // Tipos locales
 
 const ImageModal: React.FC<ImageModalProps> = ({
   imageUrls,

@@ -1,7 +1,7 @@
 // store/BlipStore.ts
 
 import { create } from "zustand";
-import { BlipResponse } from "../app/actions/blips";
+import { BlipResponse } from "@/types/blip"; // Importamos desde @/types/blip.ts
 
 interface BlipsState {
   newBlips: BlipResponse[];
@@ -10,7 +10,7 @@ interface BlipsState {
   hasMore: boolean;
   addNewBlip: (blip: BlipResponse) => void;
   setBlips: (blips: BlipResponse[]) => void;
-  appendBlips: (blips: BlipResponse[]) => void; // Nueva acción
+  appendBlips: (blips: BlipResponse[]) => void;
   setCursor: (cursor: string) => void;
   setHasMore: (hasMore: boolean) => void;
   clearAllBlips: () => void;
