@@ -1,11 +1,11 @@
 "use client";
 
 import { FiChevronLeft, FiChevronRight, FiImage } from "react-icons/fi";
-import { ImageModalProps } from "./types"; // Tipos locales
+import { ImageModalProps } from "./types";
 
 const ImageModal: React.FC<ImageModalProps> = ({
   imageUrls,
-  selectedImage,
+  selectedIndex, // Cambiamos a recibir índice directamente
   isVisible,
   isEntering,
   failedImages,
@@ -13,7 +13,9 @@ const ImageModal: React.FC<ImageModalProps> = ({
   onPrev,
   onNext,
 }) => {
-  if (!isVisible || !selectedImage) return null;
+  if (!isVisible || selectedIndex === null) return null;
+
+  const selectedImage = imageUrls[selectedIndex]; // Usamos el índice recibido
 
   const renderImage = (url: string, alt: string, className: string) => {
     if (failedImages.has(url)) {
@@ -45,7 +47,7 @@ const ImageModal: React.FC<ImageModalProps> = ({
       }`}
       onClick={onClose}
     >
-      {imageUrls.length > 1 && imageUrls.indexOf(selectedImage) > 0 && (
+      {imageUrls.length > 1 && selectedIndex > 0 && (
         <button
           className="absolute left-4 top-1/2 -translate-y-1/2 bg-white/10 hover:bg-white/20 text-white p-3 rounded-full transition-all"
           onClick={(e) => {
@@ -65,18 +67,17 @@ const ImageModal: React.FC<ImageModalProps> = ({
         }`
       )}
 
-      {imageUrls.length > 1 &&
-        imageUrls.indexOf(selectedImage) < imageUrls.length - 1 && (
-          <button
-            className="absolute right-4 top-1/2 -translate-y-1/2 bg-white/10 hover:bg-white/20 text-white p-3 rounded-full transition-all"
-            onClick={(e) => {
-              e.stopPropagation();
-              onNext();
-            }}
-          >
-            <FiChevronRight size={24} />
-          </button>
-        )}
+      {imageUrls.length > 1 && selectedIndex < imageUrls.length - 1 && (
+        <button
+          className="absolute right-4 top-1/2 -translate-y-1/2 bg-white/10 hover:bg-white/20 text-white p-3 rounded-full transition-all"
+          onClick={(e) => {
+            e.stopPropagation();
+            onNext();
+          }}
+        >
+          <FiChevronRight size={24} />
+        </button>
+      )}
     </div>
   );
 };

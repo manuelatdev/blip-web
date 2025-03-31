@@ -8,7 +8,7 @@ import { BlipImagesProps } from "./types";
 
 export function BlipImages({ imageUrls }: BlipImagesProps) {
   const [containerHeight, setContainerHeight] = useState<number | null>(null);
-  const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
   const [isVisible, setIsVisible] = useState(false);
   const [isEntering, setIsEntering] = useState(false);
   const [failedImages, setFailedImages] = useState<Set<string>>(new Set());
@@ -44,7 +44,7 @@ export function BlipImages({ imageUrls }: BlipImagesProps) {
   }, [imageUrls]);
 
   useEffect(() => {
-    if (selectedImage) {
+    if (selectedIndex !== null) {
       setIsVisible(true);
       setTimeout(() => setIsEntering(true), 10);
     } else {
@@ -52,26 +52,27 @@ export function BlipImages({ imageUrls }: BlipImagesProps) {
       const timer = setTimeout(() => setIsVisible(false), 300);
       return () => clearTimeout(timer);
     }
-  }, [selectedImage]);
+  }, [selectedIndex]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (!selectedImage || imageUrls.length <= 1) return;
+      if (selectedIndex === null || imageUrls.length <= 1) return;
 
-      const currentIndex = imageUrls.indexOf(selectedImage);
-      if (e.key === "ArrowLeft" && currentIndex > 0) {
-        setSelectedImage(imageUrls[currentIndex - 1]);
+      console.log("Key pressed:", e.key, "Current index:", selectedIndex);
+
+      if (e.key === "ArrowLeft" && selectedIndex > 0) {
+        setSelectedIndex(selectedIndex - 1);
       } else if (
         e.key === "ArrowRight" &&
-        currentIndex < imageUrls.length - 1
+        selectedIndex < imageUrls.length - 1
       ) {
-        setSelectedImage(imageUrls[currentIndex + 1]);
+        setSelectedIndex(selectedIndex + 1);
       }
     };
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [selectedImage, imageUrls]);
+  }, [selectedIndex, imageUrls]);
 
   if (imageUrls.length === 0) return null;
 
@@ -79,16 +80,16 @@ export function BlipImages({ imageUrls }: BlipImagesProps) {
     "object-cover border border-gray-200 dark:border-gray-700 rounded-md cursor-pointer transition-transform hover:scale-[1.02]";
 
   const handlePrev = () => {
-    const currentIndex = imageUrls.indexOf(selectedImage!);
-    if (currentIndex > 0) {
-      setSelectedImage(imageUrls[currentIndex - 1]);
+    if (selectedIndex !== null && selectedIndex > 0) {
+      console.log("Prev clicked, new index:", selectedIndex - 1);
+      setSelectedIndex(selectedIndex - 1);
     }
   };
 
   const handleNext = () => {
-    const currentIndex = imageUrls.indexOf(selectedImage!);
-    if (currentIndex < imageUrls.length - 1) {
-      setSelectedImage(imageUrls[currentIndex + 1]);
+    if (selectedIndex !== null && selectedIndex < imageUrls.length - 1) {
+      console.log("Next clicked, new index:", selectedIndex + 1);
+      setSelectedIndex(selectedIndex + 1);
     }
   };
 
@@ -97,6 +98,7 @@ export function BlipImages({ imageUrls }: BlipImagesProps) {
     alt: string,
     className: string,
     sizes: string,
+    index: number,
     isModal: boolean = false
   ) => {
     if (failedImages.has(url)) {
@@ -104,7 +106,7 @@ export function BlipImages({ imageUrls }: BlipImagesProps) {
         <div
           className={`${className} flex items-center justify-center bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400`}
           onClick={
-            isModal ? (e) => e.stopPropagation() : () => setSelectedImage(url)
+            isModal ? (e) => e.stopPropagation() : () => setSelectedIndex(index)
           }
         >
           <FiImage size={isModal ? 96 : 48} />
@@ -134,7 +136,10 @@ export function BlipImages({ imageUrls }: BlipImagesProps) {
           sizes={sizes}
           className="object-cover rounded-md"
           onError={() => setFailedImages((prev) => new Set(prev).add(url))}
-          onClick={() => setSelectedImage(url)}
+          onClick={() => {
+            console.log("Image clicked, index:", index);
+            setSelectedIndex(index);
+          }}
         />
       </div>
     );
@@ -151,7 +156,8 @@ export function BlipImages({ imageUrls }: BlipImagesProps) {
             imageUrls[0],
             "Imagen 1",
             "absolute inset-0 w-full h-full",
-            "100vw"
+            "100vw",
+            0
           )}
         </div>
       )}
@@ -162,13 +168,15 @@ export function BlipImages({ imageUrls }: BlipImagesProps) {
             imageUrls[0],
             "Imagen 1",
             `w-full h-64 ${baseImageClass}`,
-            "50vw"
+            "50vw",
+            0
           )}
           {renderImage(
             imageUrls[1],
             "Imagen 2",
             `w-full h-64 ${baseImageClass}`,
-            "50vw"
+            "50vw",
+            1
           )}
         </div>
       )}
@@ -179,20 +187,23 @@ export function BlipImages({ imageUrls }: BlipImagesProps) {
             imageUrls[0],
             "Imagen 1",
             `w-full h-64 ${baseImageClass}`,
-            "50vw"
+            "50vw",
+            0
           )}
           <div className="grid grid-rows-2 gap-1">
             {renderImage(
               imageUrls[1],
               "Imagen 2",
               `w-full h-32 ${baseImageClass}`,
-              "50vw"
+              "50vw",
+              1
             )}
             {renderImage(
               imageUrls[2],
               "Imagen 3",
               `w-full h-32 ${baseImageClass}`,
-              "50vw"
+              "50vw",
+              2
             )}
           </div>
         </div>
@@ -206,7 +217,8 @@ export function BlipImages({ imageUrls }: BlipImagesProps) {
                 url,
                 `Imagen ${index + 1}`,
                 `absolute inset-0 w-full h-full ${baseImageClass}`,
-                "50vw"
+                "50vw",
+                index
               )}
             </div>
           ))}
@@ -215,11 +227,11 @@ export function BlipImages({ imageUrls }: BlipImagesProps) {
 
       <ImageModal
         imageUrls={imageUrls}
-        selectedImage={selectedImage!}
+        selectedIndex={selectedIndex} // Pasamos el índice directamente
         isVisible={isVisible}
         isEntering={isEntering}
         failedImages={failedImages}
-        onClose={() => setSelectedImage(null)}
+        onClose={() => setSelectedIndex(null)}
         onPrev={handlePrev}
         onNext={handleNext}
       />

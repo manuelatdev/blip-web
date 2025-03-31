@@ -6,7 +6,7 @@ export interface BlipImagesProps {
 
 export interface ImageModalProps {
   imageUrls: string[];
-  selectedImage: string;
+  selectedIndex: number | null; // Cambiamos de selectedImage a selectedIndex
   isVisible: boolean;
   isEntering: boolean;
   failedImages: Set<string>;
