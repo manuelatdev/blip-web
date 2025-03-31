@@ -4,9 +4,9 @@ import { useState, useRef, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { toast } from "sonner";
-import { deleteBlip } from "../actions/blips";
+import { deleteBlip } from "../../actions/blips";
 import { X } from "lucide-react";
-import { BlipImages } from "./BlipImages";
+import { BlipImages } from "./BlipImages/BlipImages";
 
 interface BlipProps {
   blipId: string;

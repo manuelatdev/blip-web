@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
-import { clearAllBlipsAndBucket } from "../actions/blips";
+import { clearAllBlipsAndBucket } from "../../actions/blips";
 
 interface ClearBlipsFormProps {
   onBlipsCleared?: () => void;

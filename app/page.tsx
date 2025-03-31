@@ -1,7 +1,7 @@
 import { auth } from "@/auth";
-import BlipFeed from "./components/BlipFeed";
+import BlipFeed from "./components/feed/BlipFeed";
 import Navbar from "./components/Navbar";
-import AdminControls from "./components/AdminControls";
+import AdminControls from "./components/admin/AdminControls";
 
 export default async function Home() {
   const session = await auth();

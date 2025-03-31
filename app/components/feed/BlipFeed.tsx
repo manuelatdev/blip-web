@@ -1,6 +1,6 @@
 "use client";
 
-import CreateBlipForm from "./CreateBlipForm";
+import CreateBlipForm from "../CreateBlipForm";
 import BlipList from "./BlipList";
 import { useBlipsStore } from "@/store/BlipStore";
 

@@ -1,3 +1,5 @@
+// store/BlipStore.ts
+
 import { create } from "zustand";
 import { BlipResponse } from "../app/actions/blips";
 
@@ -8,6 +10,7 @@ interface BlipsState {
   hasMore: boolean;
   addNewBlip: (blip: BlipResponse) => void;
   setBlips: (blips: BlipResponse[]) => void;
+  appendBlips: (blips: BlipResponse[]) => void; // Nueva acción
   setCursor: (cursor: string) => void;
   setHasMore: (hasMore: boolean) => void;
   clearAllBlips: () => void;
@@ -28,6 +31,12 @@ export const useBlipsStore = create<BlipsState>((set) => ({
   setBlips: (blips) =>
     set((state) => ({
       blips: [...state.newBlips, ...blips].filter(
+        (b, i, self) => i === self.findIndex((x) => x.blipId === b.blipId)
+      ),
+    })),
+  appendBlips: (blips) =>
+    set((state) => ({
+      blips: [...state.blips, ...blips].filter(
         (b, i, self) => i === self.findIndex((x) => x.blipId === b.blipId)
       ),
     })),

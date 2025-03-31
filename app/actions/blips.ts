@@ -1,35 +1,20 @@
+// actions/blips.ts
+
 "use server";
 
-import { v4 as uuidv4 } from "uuid";
-import {
-  S3Client,
-  PutObjectCommand,
-  DeleteObjectCommand,
-  HeadBucketCommand,
-  CreateBucketCommand,
-  ListObjectsV2Command,
-  DeleteObjectsCommand,
-  DeleteBucketCommand,
-} from "@aws-sdk/client-s3";
-import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { revalidatePath } from "next/cache";
 import { auth } from "@/auth";
+import {
+  deleteObjectFromBucket,
+  deleteObjectsFromBucket,
+  listObjectsInBucket,
+  generatePresignedUrls, // Ya está importada
+} from "@/utils/s3";
 
 const BLIPS_API_URL =
   process.env.NEXT_PUBLIC_BLIPS_API_URL || "http://localhost:8081";
 
 const bucketName = "blips";
-// process.env.NODE_ENV === "production" ? "blips-prod" : "blips-dev";
-
-const s3Client = new S3Client({
-  region: "us-east-1",
-  endpoint: process.env.MINIO_ENDPOINT || "http://127.0.0.1:9000",
-  credentials: {
-    accessKeyId: process.env.MINIO_ACCESS_KEY || "minioadmin",
-    secretAccessKey: process.env.MINIO_SECRET_KEY || "minioadmin",
-  },
-  forcePathStyle: true,
-});
 
 export interface BlipResponse {
   blipId: string;
@@ -141,14 +126,10 @@ export async function deleteBlip(
   if (imageUrls.length > 0) {
     await Promise.all(
       imageUrls.map(async (url) => {
-        const key = url.split("/").slice(4).join("/"); // Extraer la clave completa, incluyendo el prefijo (ejemplo: "123/abc123.jpg")
+        const key = url.split("/").slice(4).join("/");
         if (key) {
           try {
-            const command = new DeleteObjectCommand({
-              Bucket: bucketName,
-              Key: key,
-            });
-            await s3Client.send(command);
+            await deleteObjectFromBucket(bucketName, key);
             console.log(`Imagen eliminada de MinIO: ${key}`);
           } catch (error) {
             console.error(
@@ -205,58 +186,6 @@ export async function getBlipsBeforeTimestamp(
   }
 }
 
-export async function generatePresignedUrls(
-  fileNames: string[],
-  userId: string
-): Promise<{ presignedUrl: string; key: string; publicUrl: string }[]> {
-  // Asegurarse de que el bucket exista
-  try {
-    await s3Client.send(new HeadBucketCommand({ Bucket: bucketName }));
-  } catch (err) {
-    if (err instanceof Error && err.name === "NotFound") {
-      await s3Client.send(new CreateBucketCommand({ Bucket: bucketName }));
-      console.log(`Bucket ${bucketName} creado con éxito`);
-    } else {
-      throw err;
-    }
-  }
-
-  // Lista de extensiones permitidas
-  const allowedExtensions = [".jpg", ".jpeg", ".png", ".gif"];
-  const results: { presignedUrl: string; key: string; publicUrl: string }[] =
-    [];
-
-  for (const fileName of fileNames) {
-    // Obtener la extensión del archivo
-    const extension = (fileName.split(".").pop() || "jpg").toLowerCase();
-    // Validar la extensión
-    if (!allowedExtensions.includes(`.${extension}`)) {
-      throw new Error(
-        `Tipo de archivo no permitido: ${fileName}. Solo se permiten imágenes (${allowedExtensions.join(
-          ", "
-        )})`
-      );
-    }
-
-    // Generar un nombre único usando UUID
-    const uniqueName = `${uuidv4()}.${extension}`;
-    // Usar el userId directamente como prefijo, o "anon" para usuarios no autenticados
-    const key = `${userId}/${uniqueName}`;
-    const command = new PutObjectCommand({
-      Bucket: bucketName,
-      Key: key,
-    });
-    const presignedUrl = await getSignedUrl(s3Client, command, {
-      expiresIn: 300, // 5 minutos de expiración
-    });
-    const publicUrl = `${
-      process.env.MINIO_ENDPOINT || "http://127.0.0.1:9000"
-    }/${bucketName}/${key}`;
-    results.push({ presignedUrl, key, publicUrl });
-  }
-  return results;
-}
-
 export async function clearAllBlipsAndBucket() {
   const session = await auth();
   if (!session) {
@@ -284,16 +213,12 @@ export async function clearAllBlipsAndBucket() {
       throw new Error("Error al limpiar la base de datos de blips");
     }
 
-    const listCommand = new ListObjectsV2Command({ Bucket: bucketName });
-    const { Contents } = await s3Client.send(listCommand);
-
-    if (Contents && Contents.length > 0) {
-      const objectsToDelete = Contents.map((obj) => ({ Key: obj.Key }));
-      const deleteCommand = new DeleteObjectsCommand({
-        Bucket: bucketName,
-        Delete: { Objects: objectsToDelete },
-      });
-      await s3Client.send(deleteCommand);
+    const objects = await listObjectsInBucket(bucketName);
+    if (objects.length > 0) {
+      await deleteObjectsFromBucket(
+        bucketName,
+        objects.map((obj) => obj.Key!)
+      );
       console.log("Bucket limpiado exitosamente");
     }
 
@@ -304,3 +229,6 @@ export async function clearAllBlipsAndBucket() {
     throw new Error("No se pudo completar la limpieza.");
   }
 }
+
+// Exportamos generatePresignedUrls como una Server Action
+export { generatePresignedUrls };

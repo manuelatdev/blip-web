@@ -1,7 +1,10 @@
+// components/BlipImages/ImagePreview.tsx
+
 "use client";
 
 import { useEffect, useState } from "react";
-import { FiX } from "react-icons/fi";
+import Image from "next/image";
+import { FiX, FiImage } from "react-icons/fi";
 
 interface ImagePreviewProps {
   files: FileList | null;
@@ -10,10 +13,12 @@ interface ImagePreviewProps {
 
 export function ImagePreview({ files, onRemove }: ImagePreviewProps) {
   const [previews, setPreviews] = useState<string[]>([]);
+  const [failedImages, setFailedImages] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     if (!files) {
       setPreviews([]);
+      setFailedImages(new Set());
       return;
     }
 
@@ -31,16 +36,40 @@ export function ImagePreview({ files, onRemove }: ImagePreviewProps) {
 
   if (previews.length === 0) return null;
 
+  const renderImage = (url: string, alt: string, className: string) => {
+    if (failedImages.has(url)) {
+      return (
+        <div
+          className={`${className} flex items-center justify-center bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400`}
+        >
+          <FiImage size={48} />
+        </div>
+      );
+    }
+
+    return (
+      <div className={className} style={{ position: "relative" }}>
+        <Image
+          src={url}
+          alt={alt}
+          fill
+          className="object-cover rounded-md"
+          onError={() => setFailedImages((prev) => new Set(prev).add(url))}
+        />
+      </div>
+    );
+  };
+
   return (
     <div className="mt-2 mb-2">
       <div className="grid grid-cols-2 gap-2 md:flex md:flex-row md:gap-2 md:overflow-x-auto">
         {previews.map((preview, index) => (
           <div key={index} className="relative flex-shrink-0 group">
-            <img
-              src={preview}
-              alt={`Vista previa de imagen ${index + 1}`}
-              className="w-32 h-32 object-cover rounded-md border border-gray-300 shadow-sm"
-            />
+            {renderImage(
+              preview,
+              `Vista previa de imagen ${index + 1}`,
+              "w-32 h-32 border border-gray-300 shadow-sm"
+            )}
             {onRemove && (
               <button
                 onClick={() => onRemove(index)}

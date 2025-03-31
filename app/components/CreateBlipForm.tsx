@@ -1,3 +1,5 @@
+// components/CreateBlipForm.tsx
+
 "use client";
 
 import { useState, useTransition, useRef, useEffect } from "react";
@@ -5,11 +7,12 @@ import { useSession } from "next-auth/react";
 import {
   createBlip,
   BlipResponse,
-  generatePresignedUrls,
+  generatePresignedUrls, // Importamos directamente como Server Action
 } from "../actions/blips";
 import { toast } from "sonner";
 import { FiImage } from "react-icons/fi";
-import { ImagePreview } from "./ImagePreview";
+import { ImagePreview } from "./blip/ImagePreview";
+import { uploadFileWithPresignedUrl } from "@/utils/s3";
 
 interface CreateBlipFormProps {
   onBlipCreated?: (blip: BlipResponse) => void;
@@ -151,21 +154,14 @@ export default function CreateBlipForm({ onBlipCreated }: CreateBlipFormProps) {
         if (hasImages) {
           const fileNames = Array.from(files!).map((file) => file.name);
           const userId = session?.user?.id || "anon";
+
+          // Usamos la Server Action directamente
           const presignedData = await generatePresignedUrls(fileNames, userId);
 
           await Promise.all(
             Array.from(files!).map(async (file, index) => {
               const { presignedUrl, publicUrl } = presignedData[index];
-              const response = await fetch(presignedUrl, {
-                method: "PUT",
-                body: file,
-                headers: {
-                  "Content-Type": file.type,
-                },
-              });
-              if (!response.ok) {
-                throw new Error(`Error al subir la imagen ${file.name}`);
-              }
+              await uploadFileWithPresignedUrl(presignedUrl, file);
               imageUrls.push(publicUrl);
             })
           );
@@ -191,7 +187,7 @@ export default function CreateBlipForm({ onBlipCreated }: CreateBlipFormProps) {
         });
 
         if (onBlipCreated) {
-          onBlipCreated(newBlip); // Añade el nuevo blip al almacén
+          onBlipCreated(newBlip);
         }
       } catch (err) {
         const errorMessage =

@@ -1,17 +1,26 @@
+// components/feed/BlipList.tsx
+
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import Blip from "./Blip";
-import { BlipResponse, getBlipsBeforeTimestamp } from "../actions/blips";
-import { useBlipsStore } from "../../store/BlipStore";
+import Blip from "../blip/Blip";
+import { BlipResponse, getBlipsBeforeTimestamp } from "../../actions/blips";
+import { useBlipsStore } from "../../../store/BlipStore";
 
 interface BlipListProps {
   accessToken: string;
 }
 
 export default function BlipList({ accessToken }: BlipListProps) {
-  const { blips, cursor, hasMore, setBlips, setCursor, setHasMore } =
-    useBlipsStore();
+  const {
+    blips,
+    cursor,
+    hasMore,
+    setBlips,
+    appendBlips,
+    setCursor,
+    setHasMore,
+  } = useBlipsStore();
   const [isLoading, setIsLoading] = useState(false);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   const observerRef = useRef<IntersectionObserver | null>(null);
@@ -36,7 +45,11 @@ export default function BlipList({ accessToken }: BlipListProps) {
       if (fetchedBlips.length === 0) {
         setHasMore(false);
       } else {
-        setBlips(fetchedBlips);
+        if (initialLoad) {
+          setBlips(fetchedBlips); // Carga inicial: reemplaza los blips
+        } else {
+          appendBlips(fetchedBlips); // Carga posterior: agrega los blips
+        }
         setCursor(fetchedBlips[fetchedBlips.length - 1].timestamp);
         console.log(
           "New cursor set to:",
