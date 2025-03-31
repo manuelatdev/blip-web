@@ -272,7 +272,7 @@ export async function clearAllBlipsAndBucket() {
   }
 
   try {
-    const response = await fetch(`${BLIPS_API_URL}/blips/clear-all`, {
+    const response = await fetch(`${BLIPS_API_URL}/admin/blips/clear-all`, {
       method: "DELETE",
       headers: {
         "Content-Type": "application/json",
