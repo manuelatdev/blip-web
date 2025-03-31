@@ -1,40 +1,25 @@
-import { auth } from "@/auth"; // Importa desde tu archivo auth.ts
-import { getLatestBlips } from "./actions";
-import Blip from "./components/Blip";
-import CreateBlipForm from "./components/CreateBlipForm";
+import { auth } from "@/auth";
+import BlipFeed from "./components/BlipFeed";
 import Navbar from "./components/Navbar";
-
-interface BlipData {
-  blipId: string;
-  content: string;
-  userId: string;
-  timestamp: string;
-}
+import AdminControls from "./components/AdminControls";
 
 export default async function Home() {
-  const session = await auth(); // Obtiene la sesión en el servidor
-  const blips = await getLatestBlips();
+  const session = await auth();
+
+  const userRole = session?.role || "USER";
+  const isAdmin = userRole === "ADMIN";
+  const isDevEnv = process.env.NODE_ENV === "development";
 
   return (
     <div className="bg-gray-50 min-h-screen">
-      <Navbar />{" "}
-      {/* Navbar usará la sesión del cliente, pero SSR debería funcionar */}
-      <div className="max-w-xl mx-auto px-4 pt-16 pb-6">
-        <section className="mb-6">
-          <CreateBlipForm />
-        </section>
-        <section>
-          <div className="space-y-0">
-            {blips.map((blip: BlipData) => (
-              <Blip
-                key={blip.blipId}
-                content={blip.content}
-                userId={blip.userId}
-                timestamp={blip.timestamp}
-              />
-            ))}
-          </div>
-        </section>
+      <Navbar />
+      <AdminControls isAdmin={isAdmin && !!session} isDevEnv={isDevEnv} />
+      <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 pt-16 pb-6">
+        <BlipFeed
+          accessToken={session?.accessToken || ""}
+          isAdmin={isAdmin && !!session}
+          isDevEnv={isDevEnv}
+        />
       </div>
     </div>
   );

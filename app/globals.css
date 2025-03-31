@@ -1,3 +1,4 @@
+/* globals.css */
 @import "tailwindcss";
 @import "tw-animate-css";
 
@@ -117,6 +118,80 @@
     @apply border-border outline-ring/50;
   }
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground font-sans;
+  }
+}
+
+html {
+  overflow-y: scroll;
+}
+
+/* Animaciones */
+@keyframes emit {
+  0% {
+    opacity: 0;
+  }
+  40% {
+    opacity: 0.6;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes pulse {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.15);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes pulseRing {
+  0% {
+    r: 8;
+    opacity: 0.5;
+  }
+  50% {
+    r: 12;
+    opacity: 0;
+  }
+  100% {
+    r: 8;
+    opacity: 0.5;
+  }
+}
+
+.wave,
+.pulse,
+.pulse-ring {
+  animation: none;
+}
+
+.logo:hover .wave {
+  animation: emit 2.5s infinite ease-in-out;
+}
+
+.logo:hover .wave:nth-child(2) {
+  animation-delay: 0.5s;
+}
+
+.logo:hover .pulse {
+  animation: pulse 1.5s infinite ease-in-out;
+}
+
+.logo:hover .pulse-ring {
+  animation: pulseRing 1.5s infinite ease-in-out;
+}
+
+@media (max-width: 640px) {
+  .wave,
+  .pulse,
+  .pulse-ring {
+    animation: none !important;
   }
 }

@@ -1,66 +1,243 @@
-'use client';
+"use client";
 
-import { useState, useTransition, useRef, useEffect } from 'react';
-import { createBlip } from '../actions';
+import { useState, useTransition, useRef, useEffect } from "react";
+import { useSession } from "next-auth/react";
+import {
+  createBlip,
+  BlipResponse,
+  generatePresignedUrls,
+} from "../actions/blips";
+import { toast } from "sonner";
+import { FiImage } from "react-icons/fi";
+import { ImagePreview } from "./ImagePreview";
 
-export default function CreateBlipForm() {
-  const [content, setContent] = useState('');
-  const [error, setError] = useState<string | null>(null);
+interface CreateBlipFormProps {
+  onBlipCreated?: (blip: BlipResponse) => void;
+}
+
+export default function CreateBlipForm({ onBlipCreated }: CreateBlipFormProps) {
+  const [content, setContent] = useState("");
+  const [files, setFiles] = useState<FileList | null>(null);
   const [isPending, startTransition] = useTransition();
+  const [fileInputKey, setFileInputKey] = useState(Date.now());
+  const { data: session } = useSession();
   const maxLength = 280;
-  const userId = '550e8400-e29b-41d4-a716-446655440000'; // Fijo por ahora
+  const maxImages = 4;
+  const maxFileSize = 5 * 1024 * 1024; // 5 MB en bytes
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Ajustar la altura del textarea dinámicamente
   useEffect(() => {
     const textarea = textareaRef.current;
     if (textarea) {
-      textarea.style.height = 'auto';
-      textarea.style.height = `${textarea.scrollHeight}px`; 
+      textarea.style.height = "auto";
+      textarea.style.height = `${textarea.scrollHeight}px`;
     }
   }, [content]);
 
-  const handleSubmit = async (formData: FormData) => {
+  const resetFileInput = () => {
+    setFiles(null);
+    setFileInputKey(Date.now());
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
+
+  const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const newContent = e.target.value.slice(0, maxLength);
+    setContent(newContent);
+  };
+
+  const handlePaste = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    const pastedText = e.clipboardData.getData("text");
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const newContent = (
+      content.slice(0, start) +
+      pastedText +
+      content.slice(end)
+    ).slice(0, maxLength);
+    setContent(newContent);
+    e.preventDefault();
+
+    requestAnimationFrame(() => {
+      const newCursorPos = start + pastedText.length;
+      textarea.setSelectionRange(newCursorPos, newCursorPos);
+    });
+  };
+
+  const handleFileButtonClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFiles = event.target.files;
+    if (selectedFiles) {
+      const imageFiles = Array.from(selectedFiles).filter((file) =>
+        file.type.startsWith("image/")
+      );
+
+      const oversizedFiles = imageFiles.filter(
+        (file) => file.size > maxFileSize
+      );
+      if (oversizedFiles.length > 0) {
+        toast.error("Archivo demasiado grande", {
+          description: `Los archivos no pueden superar los ${
+            maxFileSize / (1024 * 1024)
+          } MB. Archivos excedidos: ${oversizedFiles
+            .map((file) => file.name)
+            .join(", ")}`,
+          duration: 3000,
+        });
+        event.target.value = "";
+        return;
+      }
+
+      const existingFiles = files ? Array.from(files) : [];
+      const combinedFiles = [...existingFiles, ...imageFiles];
+
+      if (combinedFiles.length > maxImages) {
+        toast.error("Máximo 4 imágenes permitidas", {
+          description: "No puedes añadir más de 4 imágenes en total.",
+          duration: 3000,
+        });
+        event.target.value = "";
+      } else if (imageFiles.length > 0) {
+        const dataTransfer = new DataTransfer();
+        combinedFiles.forEach((file) => dataTransfer.items.add(file));
+        setFiles(dataTransfer.files);
+      } else {
+        toast.warning("Solo se permiten imágenes", {
+          description: "Selecciona archivos de tipo imagen (jpg, png, etc.).",
+          duration: 3000,
+        });
+        event.target.value = "";
+      }
+    }
+  };
+
+  const handleRemoveImage = (indexToRemove: number) => {
+    if (files) {
+      const newFiles = Array.from(files).filter(
+        (_, index) => index !== indexToRemove
+      );
+      const dataTransfer = new DataTransfer();
+      newFiles.forEach((file) => dataTransfer.items.add(file));
+      setFiles(dataTransfer.files.length > 0 ? dataTransfer.files : null);
+      resetFileInput();
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
     startTransition(async () => {
       try {
-        await createBlip(formData);
-        setContent('');
-        setError(null);
+        const contentToSend = content.trim();
+        const hasContent = contentToSend.length > 0;
+        const hasImages = files && files.length > 0;
+
+        if (!hasContent && !hasImages) {
+          toast.error("Contenido requerido", {
+            description: "Añade texto o imágenes antes de enviar el Blip.",
+            duration: 3000,
+          });
+          return;
+        }
+
+        let imageUrls: string[] = [];
+        if (hasImages) {
+          const fileNames = Array.from(files!).map((file) => file.name);
+          const userId = session?.user?.id || "anon";
+          const presignedData = await generatePresignedUrls(fileNames, userId);
+
+          await Promise.all(
+            Array.from(files!).map(async (file, index) => {
+              const { presignedUrl, publicUrl } = presignedData[index];
+              const response = await fetch(presignedUrl, {
+                method: "PUT",
+                body: file,
+                headers: {
+                  "Content-Type": file.type,
+                },
+              });
+              if (!response.ok) {
+                throw new Error(`Error al subir la imagen ${file.name}`);
+              }
+              imageUrls.push(publicUrl);
+            })
+          );
+        }
+
+        const formData = new FormData();
+        if (hasContent) formData.set("content", contentToSend);
+        if (imageUrls.length > 0) {
+          imageUrls.forEach((url, index) =>
+            formData.append(`imageUrl${index}`, url)
+          );
+        }
+        if (session?.accessToken)
+          formData.set("accessToken", session.accessToken);
+
+        const newBlip = await createBlip(formData, session?.accessToken);
+
+        setContent("");
+        resetFileInput();
+        toast.success("Blip creado", {
+          description: "Tu Blip se ha enviado correctamente.",
+          duration: 3000,
+        });
+
+        if (onBlipCreated) {
+          onBlipCreated(newBlip); // Añade el nuevo blip al almacén
+        }
       } catch (err) {
-        const errorMessage = err instanceof Error ? err.message : 'Error al crear el Blip';
-        setError(errorMessage);
+        const errorMessage =
+          err instanceof Error ? err.message : "Error al crear el Blip";
+        toast.error("Error", {
+          description: errorMessage,
+          duration: 3000,
+        });
+        resetFileInput();
       }
     });
   };
 
-  // Calcular el porcentaje para el contador circular
   const remainingChars = maxLength - content.length;
   const showCircle = content.length > 0;
   const circleProgress = (content.length / maxLength) * 100;
   const isNearLimit = remainingChars <= 20;
+  const isFormValid = content.trim().length > 0 || (files && files.length > 0);
 
   return (
     <form
-      action={handleSubmit}
+      onSubmit={handleSubmit}
       className="bg-white py-4 px-4 border-b border-gray-200 rounded-sm"
     >
-      <input type="hidden" name="userId" value={userId} />
+      {session?.accessToken && (
+        <input type="hidden" name="accessToken" value={session.accessToken} />
+      )}
 
       <textarea
         ref={textareaRef}
         name="content"
         value={content}
-        onChange={(e) => setContent(e.target.value)}
+        onChange={handleChange}
+        onPaste={handlePaste}
         placeholder="¿Qué estás pensando?"
         maxLength={maxLength}
-        className="w-full resize-none border-none focus:outline-none text-gray-900 text-[15px] leading-5 placeholder-gray-500 overflow-hidden"
+        className="w-full resize-none border-none focus:outline-none text-gray-900 text-[14px] sm:text-[15px] leading-5 placeholder-gray-500 overflow-hidden min-h-[40px] max-h-[120px]"
         disabled={isPending}
       />
+
+      <ImagePreview files={files} onRemove={handleRemoveImage} />
 
       <div className="flex items-center justify-between mt-3">
         <div className="flex items-center gap-2">
           {showCircle && (
-            <svg className="w-5 h-5" viewBox="0 0 20 20">
+            <svg className="w-4 h-4 sm:w-5 sm:h-5" viewBox="0 0 20 20">
               <circle
                 cx="10"
                 cy="10"
@@ -74,7 +251,7 @@ export default function CreateBlipForm() {
                 cy="10"
                 r="9"
                 fill="none"
-                stroke={isNearLimit ? '#ef4444' : '#1d9bf0'}
+                stroke={isNearLimit ? "#ef4444" : "#1d9bf0"}
                 strokeWidth="2"
                 strokeDasharray="56.5487"
                 strokeDashoffset={56.5487 * (1 - circleProgress / 100)}
@@ -83,21 +260,45 @@ export default function CreateBlipForm() {
             </svg>
           )}
           {isNearLimit && (
-            <span className={`text-[13px] ${remainingChars < 0 ? 'text-red-500' : 'text-gray-500'}`}>
+            <span
+              className={`text-[13px] ${
+                remainingChars < 0 ? "text-red-500" : "text-gray-500"
+              }`}
+            >
               {remainingChars}
             </span>
           )}
         </div>
-        <button
-          type="submit"
-          className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-1 rounded-full font-medium text-sm disabled:opacity-50"
-          disabled={isPending || content.trim() === ''}
-        >
-          {isPending ? 'Creando...' : 'Blip'}
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={handleFileButtonClick}
+            className="w-6 h-6 bg-gray-300 text-gray-600 rounded-full flex items-center justify-center hover:bg-gray-400 transition-colors focus:outline-none"
+            aria-label="Añadir imágenes"
+            title="Añadir imágenes"
+            disabled={isPending}
+          >
+            <FiImage size={16} />
+          </button>
+          <input
+            key={fileInputKey}
+            type="file"
+            ref={fileInputRef}
+            className="hidden"
+            onChange={handleFileChange}
+            accept="image/*"
+            multiple
+            disabled={isPending}
+          />
+          <button
+            type="submit"
+            className="bg-blue-500 hover:bg-blue-600 text-white px-3 sm:px-4 py-1 rounded-full font-medium text-xs sm:text-sm disabled:opacity-50"
+            disabled={isPending || !isFormValid}
+          >
+            {isPending ? "Creando..." : "Blip"}
+          </button>
+        </div>
       </div>
-
-      {error && <p className="text-red-500 text-[13px] mt-2">{error}</p>}
     </form>
   );
 }
